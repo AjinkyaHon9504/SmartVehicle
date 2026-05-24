@@ -1,0 +1,372 @@
+{% extends 'dashboard/base_layout.html' %}
+{% block title %}Detection Logs | Smart Parking{% endblock %}
+{% block page_title %}Detection Logs{% endblock %}
+{% block page_subtitle %}Chronological captures from the live AI detection nodes{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Table Glass Enhancements */
+    .table-container {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border-glass);
+    }
+    .custom-table {
+        margin: 0;
+        background: transparent !important;
+        color: #f1f5f9;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .custom-table th {
+        background: rgba(255, 255, 255, 0.03) !important;
+        color: #94a3b8;
+        font-family: var(--font-headings);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--border-glass) !important;
+        padding: 16px 20px;
+    }
+    .custom-table td {
+        background: transparent !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+        padding: 14px 20px;
+        vertical-align: middle;
+        transition: background-color 0.2s ease;
+    }
+    .custom-table tbody tr:hover td {
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+    .custom-table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+
+    /* License Plate Design */
+    .plate-badge-container {
+        display: inline-flex;
+        align-items: center;
+        background: #f8fafc;
+        border: 2px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 2px 8px;
+        color: #0f172a;
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 800;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border-left: 6px solid #64748b; /* Gray tag default */
+        letter-spacing: 0.5px;
+    }
+    .plate-badge-container.badge-authorized {
+        border-left-color: #10b981; /* Green tag for authorized */
+    }
+    .plate-badge-container.badge-unauthorized {
+        border-left-color: #f43f5e; /* Red tag for unauthorized */
+    }
+
+    /* Status Badges */
+    .status-capsule {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+    .capsule-auth {
+        background: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .capsule-unauth {
+        background: rgba(244, 63, 94, 0.15);
+        color: #f87171;
+        border: 1px solid rgba(244, 63, 94, 0.25);
+    }
+    .badge-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+    .capsule-auth .badge-dot {
+        background: #10b981;
+        box-shadow: 0 0 8px #10b981;
+    }
+    .capsule-unauth .badge-dot {
+        background: #f43f5e;
+        box-shadow: 0 0 8px #f43f5e;
+        animation: pulse-danger 1.5s infinite;
+    }
+    
+    @keyframes pulse-danger {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
+    }
+
+    /* Search Box styling */
+    .search-input-group {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid var(--border-glass);
+        border-radius: 12px;
+        padding: 4px 12px;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        max-width: 320px;
+        transition: all 0.3s ease;
+    }
+    .search-input-group:focus-within {
+        border-color: rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
+    }
+    .search-input-group input {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: white;
+        padding: 8px;
+        font-size: 0.9rem;
+        width: 100%;
+    }
+    .search-input-group input::placeholder {
+        color: #64748b;
+    }
+    .search-input-group i {
+        color: #64748b;
+    }
+
+    /* Tab Filters styling */
+    .filter-tabs {
+        display: flex;
+        background: rgba(15, 23, 42, 0.3);
+        border: 1px solid var(--border-glass);
+        padding: 4px;
+        border-radius: 12px;
+        gap: 4px;
+    }
+    .filter-tab-btn {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .filter-tab-btn:hover {
+        color: white;
+        background: rgba(255,255,255,0.03);
+    }
+    .filter-tab-btn.active {
+        background: rgba(99, 102, 241, 0.15);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        color: white;
+    }
+
+    /* Micro progress bar for confidence */
+    .confidence-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 150px;
+    }
+    .confidence-bar-bg {
+        flex-grow: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .confidence-bar-fill {
+        height: 100%;
+        background: var(--cyan-gradient);
+        border-radius: 10px;
+        width: 0%; /* animated via JS */
+        transition: width 1s ease-out;
+    }
+    .confidence-text {
+        font-family: monospace;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #e2e8f0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- HEADER FILTER BAR -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        
+        <!-- Search bar -->
+        <div class="search-input-group">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="log-search" placeholder="Filter by plate number..." onkeyup="filterLogs()">
+        </div>
+
+        <!-- Category Filters -->
+        <div class="filter-tabs">
+            <button onclick="changeFilter('all', this)" class="filter-tab-btn active">All Events</button>
+            <button onclick="changeFilter('authorized', this)" class="filter-tab-btn">Authorized</button>
+            <button onclick="changeFilter('unauthorized', this)" class="filter-tab-btn">Unauthorized</button>
+        </div>
+
+    </div>
+
+    <!-- LOGS DATA TABLE CARD -->
+    <div class="glass-card p-0 overflow-hidden">
+        
+        <div class="p-4 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center" style="border-bottom: 1px solid var(--border-glass) !important; background: rgba(255,255,255,0.01);">
+            <h5 class="m-0"><i class="fa-solid fa-history me-2 text-cyan"></i> Capture Database</h5>
+            <span class="badge rounded-pill bg-dark" style="border: 1px solid var(--border-glass); padding: 6px 14px;" id="total-logs-badge">{{ logs|length }} captures</span>
+        </div>
+
+        <div class="table-container">
+            <table class="table custom-table" id="logs-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>License Plate</th>
+                        <th>Status</th>
+                        <th>Detection Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr class="log-row" data-status="{{ log.status|lower }}">
+                        <td class="text-secondary" style="font-size: 0.9rem;">
+                            <i class="fa-regular fa-clock me-1 text-secondary opacity-50"></i>
+                            {% firstof log.time "Just now" %}
+                        </td>
+                        <td>
+                            <div class="plate-badge-container {% if log.status == 'AUTHORIZED' %}badge-authorized{% else %}badge-unauthorized{% endif %}">
+                                {{ log.plate }}
+                            </div>
+                        </td>
+                        <td>
+                            {% if log.status == 'AUTHORIZED' %}
+                            <div class="status-capsule capsule-auth">
+                                <span class="badge-dot"></span> Authorized
+                            </div>
+                            {% else %}
+                            <div class="status-capsule capsule-unauth">
+                                <span class="badge-dot"></span> Unauthorized
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="confidence-wrapper">
+                                <div class="confidence-bar-bg">
+                                    <div class="confidence-bar-fill" data-value="{{ log.confidence }}"></div>
+                                </div>
+                                <span class="confidence-text">--%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-secondary">
+                            <i class="fa-solid fa-server fa-2x mb-3 text-muted"></i>
+                            <p class="m-0">No vehicle captures recorded in the logs yet.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let activeFilter = 'all';
+
+    // Filter by tabs & search query combined
+    function filterLogs() {
+        const query = document.getElementById("log-search").value.toLowerCase();
+        const rows = document.querySelectorAll(".log-row");
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const plate = row.cells[1].textContent.toLowerCase();
+            const status = row.getAttribute("data-status");
+
+            // Match tab filter
+            const matchTab = (activeFilter === 'all') || (status === activeFilter);
+            // Match search text
+            const matchSearch = plate.includes(query);
+
+            if (matchTab && matchSearch) {
+                row.style.display = "";
+                visibleCount++;
+            } else {
+                row.style.display = "none";
+            }
+        });
+
+        // Update badge
+        const badge = document.getElementById("total-logs-badge");
+        if (badge) {
+            badge.innerText = `${visibleCount} events`;
+        }
+    }
+
+    // Toggle Tab status
+    function changeFilter(filterVal, element) {
+        // Toggle active button
+        const buttons = document.querySelectorAll(".filter-tab-btn");
+        buttons.forEach(btn => btn.classList.remove("active"));
+        element.classList.add("active");
+
+        activeFilter = filterVal;
+        filterLogs();
+    }
+
+    // Compute float confidence values into visual progress bar meters on load
+    document.addEventListener("DOMContentLoaded", function() {
+        const fills = document.querySelectorAll(".confidence-bar-fill");
+        
+        fills.forEach(fill => {
+            let confVal = parseFloat(fill.getAttribute("data-value")) || 0;
+            
+            // If the database has confidence as 0-100 format already, handle it
+            if (confVal > 1) {
+                confVal = confVal / 100;
+            }
+            
+            const percent = Math.round(confVal * 100);
+            
+            // Find text sibling
+            const textEl = fill.closest(".confidence-wrapper").querySelector(".confidence-text");
+            if (textEl) {
+                textEl.textContent = percent + "%";
+            }
+
+            // Animate progress bar fill width
+            setTimeout(() => {
+                fill.style.width = percent + "%";
+                
+                // Colorize bar based on confidence value thresholds
+                if (percent < 60) {
+                    fill.style.background = "var(--danger-gradient)";
+                } else if (percent < 80) {
+                    fill.style.background = "var(--warning-gradient)";
+                } else {
+                    fill.style.background = "var(--cyan-gradient)";
+                }
+            }, 200);
+        });
+    });
+</script>
+{% endblock %}

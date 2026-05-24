@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments (DO NOT COMMIT)
+.venv/
+venv/
+ENV/
+env/
+
+# Firebase Secret Credentials (DO NOT COMMIT SECRETS)
+SmartVehicle/Smart/firebase/
+firebase.json
+firebase/
+
+# Databases
+db.sqlite3
+
+# Django media & static files
+/static/
+/media/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+*.log

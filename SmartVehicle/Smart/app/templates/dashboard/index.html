@@ -1,0 +1,455 @@
+{% extends 'dashboard/base_layout.html' %}
+{% block title %}Dashboard | Smart Parking{% endblock %}
+{% block page_title %}Dashboard Console{% endblock %}
+{% block page_subtitle %}Real-time parking analytics & AI detection controls{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Stat Cards Styling */
+    .stat-glow-cyan { --card-glow-color: rgba(14, 165, 233, 0.15); --icon-bg: rgba(14, 165, 233, 0.1); --icon-color: #0ea5e9; }
+    .stat-glow-indigo { --card-glow-color: rgba(99, 102, 241, 0.15); --icon-bg: rgba(99, 102, 241, 0.1); --icon-color: #818cf8; }
+    .stat-glow-emerald { --card-glow-color: rgba(16, 185, 129, 0.15); --icon-bg: rgba(16, 185, 129, 0.1); --icon-color: #34d399; }
+    .stat-glow-rose { --card-glow-color: rgba(244, 63, 94, 0.15); --icon-bg: rgba(244, 63, 94, 0.1); --icon-color: #fb7185; }
+
+    .interactive-stat-card {
+        border-left: 4px solid var(--icon-color) !important;
+    }
+    .interactive-stat-card:hover {
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4), 0 0 20px 0 var(--card-glow-color) !important;
+    }
+
+    .stat-icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: var(--icon-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--icon-color);
+        font-size: 1.3rem;
+        box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.02);
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 5px 0 0 0;
+        letter-spacing: -0.03em;
+        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0;
+    }
+
+    /* Radial Progress / Gauge Ring */
+    .radial-container {
+        position: relative;
+        width: 160px;
+        height: 160px;
+        margin: 0 auto 20px auto;
+    }
+    .radial-svg {
+        transform: rotate(-90deg);
+        width: 100%;
+        height: 100%;
+    }
+    .radial-bg {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.05);
+        stroke-width: 12;
+    }
+    .radial-progress-bar {
+        fill: none;
+        stroke: url(#cyan-teal-gradient);
+        stroke-width: 12;
+        stroke-dasharray: 440;
+        stroke-dashoffset: 440;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.5));
+    }
+    .radial-text-box {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .radial-percent {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: white;
+        line-height: 1;
+    }
+    .radial-label {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-top: 4px;
+    }
+
+    /* Live Webcam Control Console Styling */
+    .console-monitor {
+        background: #02040a;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+    }
+    .console-monitor::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent);
+        animation: scanline-top 3s infinite linear;
+    }
+
+    @keyframes scanline-top {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    .monitor-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    .monitor-icon i {
+        font-size: 1.5rem;
+        color: #94a3b8;
+        transition: color 0.3s ease;
+    }
+    .status-ping {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #64748b;
+        border: 2px solid #02040a;
+        transition: all 0.3s ease;
+    }
+    .status-ping.active {
+        background: var(--success);
+        box-shadow: 0 0 10px var(--success), 0 0 20px var(--success);
+        animation: pulse-ring 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-ring {
+        0% { transform: scale(0.9); opacity: 1; }
+        50% { opacity: 0.4; }
+        100% { transform: scale(1.15); opacity: 1; }
+    }
+
+    .monitor-text {
+        flex-grow: 1;
+    }
+    .monitor-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #f8fafc;
+        margin: 0;
+    }
+    .monitor-status-label {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin: 2px 0 0 0;
+        font-family: monospace;
+    }
+    .monitor-status-val {
+        color: #e2e8f0;
+        font-weight: 600;
+    }
+
+    /* Quick Info Widgets */
+    .quick-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .quick-info-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .quick-info-row span {
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- METRICS GRID ROW -->
+    <div class="row g-4 mb-4">
+        
+        <!-- CARD: TOTAL SLOTS -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="glass-card interactive-stat-card stat-glow-cyan h-100 d-flex align-items-center gap-3">
+                <div class="stat-icon-box">
+                    <i class="fa-solid fa-parking"></i>
+                </div>
+                <div>
+                    <p class="stat-label">Total capacity</p>
+                    <h3 class="stat-value" id="val-total">{{ total_slots }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARD: OCCUPIED -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="glass-card interactive-stat-card stat-glow-indigo h-100 d-flex align-items-center gap-3">
+                <div class="stat-icon-box">
+                    <i class="fa-solid fa-car-side"></i>
+                </div>
+                <div>
+                    <p class="stat-label">Occupied slots</p>
+                    <h3 class="stat-value" id="val-occupied">{{ occupied_slots }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARD: AVAILABLE -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="glass-card interactive-stat-card stat-glow-emerald h-100 d-flex align-items-center gap-3">
+                <div class="stat-icon-box">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div>
+                    <p class="stat-label">Available slots</p>
+                    <h3 class="stat-value" id="val-available">{{ available_slots }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARD: UNAUTHORIZED -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="glass-card interactive-stat-card stat-glow-rose h-100 d-flex align-items-center gap-3">
+                <div class="stat-icon-box">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <p class="stat-label">Unauthorized</p>
+                    <h3 class="stat-value" id="val-unauth">{{ unauthorized }}</h3>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MAIN TWO-COLUMN DASHBOARD GRID -->
+    <div class="row g-4">
+        
+        <!-- LEFT COLUMN: WEBCAM DETECTION PANEL -->
+        <div class="col-lg-8">
+            <div class="glass-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="m-0"><i class="fa-solid fa-video me-2 text-cyan"></i> Live AI Camera Node</h4>
+                        <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: 1px solid rgba(14, 165, 233, 0.25);">Hardware Integrated</span>
+                    </div>
+                    
+                    <p class="text-secondary" style="font-size: 0.95rem; line-height: 1.6;">
+                        This system connects to your hardware-mounted webcam to capture, identify, and process vehicle entrance feeds. Real-time OCR processes license plates to catalog logs and manage capacity metrics.
+                    </p>
+
+                    <!-- Web Monitor Interface -->
+                    <div class="console-monitor">
+                        <div class="monitor-icon" id="cam-monitor-icon">
+                            <i class="fa-solid fa-circle-notch fa-spin d-none" id="cam-spinner"></i>
+                            <i class="fa-solid fa-camera-retro" id="cam-static-icon"></i>
+                            <div class="status-ping" id="cam-ping"></div>
+                        </div>
+                        <div class="monitor-text">
+                            <h5 class="monitor-title">Webcam Thread Monitor</h5>
+                            <p class="monitor-status-label">SYSTEM_STATE: <span class="monitor-status-val" id="console-status-text">OFFLINE / IDLE</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Controls -->
+                <div class="mt-4 pt-3 border-top border-secondary-subtle" style="border-top: 1px solid var(--border-glass) !important;">
+                    <div class="d-flex flex-wrap gap-3">
+                        <button onclick="toggleDetection('start')" class="glass-btn glass-btn-primary">
+                            <i class="fa-solid fa-play"></i> Start Detection Thread
+                        </button>
+                        <button onclick="toggleDetection('stop')" class="glass-btn glass-btn-danger">
+                            <i class="fa-solid fa-stop"></i> Stop Detection Thread
+                        </button>
+                        <a href="/logs/" class="glass-btn glass-btn-secondary ms-sm-auto">
+                            <i class="fa-solid fa-clock-rotate-left"></i> View Log History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: RADIAL UTILIZATION & SYSTEM METRICS -->
+        <div class="col-lg-4">
+            <div class="glass-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h4 class="mb-4 text-center"><i class="fa-solid fa-chart-line me-2 text-primary"></i> Utilization Dial</h4>
+                    
+                    <!-- RADIAL PROGRESS CIRCLE -->
+                    <div class="radial-container">
+                        <svg class="radial-svg">
+                            <defs>
+                                <linearGradient id="cyan-teal-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#0ea5e9" />
+                                    <stop offset="100%" stop-color="#14b8a6" />
+                                </linearGradient>
+                            </defs>
+                            <circle class="radial-bg" cx="80" cy="80" r="70" />
+                            <circle class="radial-progress-bar" id="occupancy-dial-circle" cx="80" cy="80" r="70" />
+                        </svg>
+                        <div class="radial-text-box">
+                            <span class="radial-percent" id="dial-percentage-val">0%</span>
+                            <span class="radial-label">Occupied</span>
+                        </div>
+                    </div>
+
+                    <div class="text-center mb-4">
+                        <p class="m-0 text-secondary" style="font-size: 0.85rem;">Capacity Allocation</p>
+                        <h6 class="m-0 mt-1" style="font-weight: 600;"><span class="text-cyan" id="dial-occupied-num">{{ occupied_slots }}</span> / <span id="dial-total-num">{{ total_slots }}</span> Slots filled</h6>
+                    </div>
+                </div>
+
+                <!-- QUICK DATABASE SUMMARY INFO -->
+                <div class="pt-4 border-top border-secondary-subtle" style="border-top: 1px solid var(--border-glass) !important;">
+                    <h5 class="mb-3" style="font-size: 1rem;"><i class="fa-solid fa-database me-2 text-emerald"></i> System Totals</h5>
+                    
+                    <div class="quick-info-row">
+                        <span class="text-secondary"><i class="fa-solid fa-clipboard-check me-2"></i> Registered Vehicles</span>
+                        <span class="badge rounded-pill bg-dark" style="border: 1px solid var(--border-glass); padding: 5px 12px;">{{ total_vehicles }}</span>
+                    </div>
+                    
+                    <div class="quick-info-row">
+                        <span class="text-secondary"><i class="fa-solid fa-list-ol me-2"></i> Captured logs</span>
+                        <span class="badge rounded-pill bg-dark" style="border: 1px solid var(--border-glass); padding: 5px 12px;">{{ total_logs }}</span>
+                    </div>
+
+                    <div class="quick-info-row">
+                        <span class="text-secondary"><i class="fa-solid fa-shield-halved me-2"></i> Unauthorized alerts</span>
+                        <span class="badge rounded-pill text-rose" style="background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.2); padding: 5px 12px;">{{ unauthorized }}</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Toggle Web Cam thread state through Django views
+    function toggleDetection(action) {
+        const statusText = document.getElementById("console-status-text");
+        const pingIndicator = document.getElementById("cam-ping");
+        const spinner = document.getElementById("cam-spinner");
+        const staticIcon = document.getElementById("cam-static-icon");
+        const monitorIcon = document.getElementById("cam-monitor-icon");
+
+        // Loading visual state start
+        spinner.classList.remove("d-none");
+        staticIcon.classList.add("d-none");
+        statusText.innerText = action === 'start' ? "ACTIVATING WEBCAM..." : "SHUTTING DOWN THREAD...";
+        statusText.style.color = "#a5b4fc";
+
+        const endpoint = action === 'start' ? "/vehicles/detect/start/" : "/vehicles/detect/stop/";
+        
+        fetch(endpoint)
+        .then(res => res.json())
+        .then(data => {
+            // Wait slightly for smooth UX feedback
+            setTimeout(() => {
+                spinner.classList.add("d-none");
+                staticIcon.classList.remove("d-none");
+                
+                statusText.innerText = data.status.toUpperCase();
+                
+                if (action === 'start' && data.status.toLowerCase().includes("started")) {
+                    pingIndicator.classList.add("active");
+                    statusText.style.color = "#10b981"; // success green
+                    staticIcon.style.color = "#10b981";
+                    monitorIcon.style.border = "1px solid rgba(16, 185, 129, 0.25)";
+                    monitorIcon.style.boxShadow = "0 0 15px rgba(16, 185, 129, 0.1)";
+                } else {
+                    pingIndicator.classList.remove("active");
+                    statusText.style.color = "#ef4444"; // red warning or slate offline
+                    staticIcon.style.color = "#64748b";
+                    monitorIcon.style.border = "1px solid rgba(255, 255, 255, 0.08)";
+                    monitorIcon.style.boxShadow = "none";
+                    if (data.status.toLowerCase().includes("stopped")) {
+                        statusText.style.color = "#94a3b8"; // idle slate
+                    }
+                }
+            }, 600);
+        })
+        .catch(err => {
+            spinner.classList.add("d-none");
+            staticIcon.classList.remove("d-none");
+            statusText.innerText = "ERROR CONNECTION FAILED";
+            statusText.style.color = "#f43f5e";
+            pingIndicator.classList.remove("active");
+        });
+    }
+
+    // Draw and animate the occupancy progress ring
+    document.addEventListener("DOMContentLoaded", function() {
+        const total = parseInt("{{ total_slots|default:1 }}") || 1;
+        const occupied = parseInt("{{ occupied_slots|default:0 }}") || 0;
+        
+        // Calculate Percentage occupied
+        let percentage = Math.round((occupied / total) * 100);
+        if (percentage > 100) percentage = 100;
+        if (percentage < 0) percentage = 0;
+
+        // Animate count labels
+        document.getElementById("dial-percentage-val").textContent = percentage + "%";
+
+        // SVG ring calculation: Circumference = 2 * PI * r = 2 * 3.14159 * 70 = 439.82 (~440)
+        const circle = document.getElementById("occupancy-dial-circle");
+        const circumference = 440;
+        const offset = circumference - (percentage / 100) * circumference;
+        
+        // Timeout to trigger smooth drawing animation
+        setTimeout(() => {
+            circle.style.strokeDashoffset = offset;
+        }, 300);
+    });
+</script>
+{% endblock %}

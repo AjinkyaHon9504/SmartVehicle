@@ -1,0 +1,257 @@
+{% extends 'dashboard/base_layout.html' %}
+{% block title %}Slots Config | Smart Parking{% endblock %}
+{% block page_title %}Slots Configuration{% endblock %}
+{% block page_subtitle %}Adjust total parking capacities and mock occupied limits{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Slider & Form Customization */
+    .form-glass-group {
+        position: relative;
+        margin-bottom: 25px;
+    }
+    
+    .input-icon-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-glass-input {
+        background: rgba(15, 23, 42, 0.4) !important;
+        border: 1px solid var(--border-glass) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        padding: 16px 16px 16px 48px !important;
+        font-size: 0.95rem !important;
+        height: auto !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .form-glass-input:focus {
+        border-color: rgba(99, 102, 241, 0.5) !important;
+        background: rgba(15, 23, 42, 0.6) !important;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+    }
+
+    .form-glass-label {
+        position: absolute;
+        left: 48px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+        font-size: 0.95rem;
+        pointer-events: none;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 500;
+    }
+
+    .form-glass-input:focus ~ .form-glass-label,
+    .form-glass-input:not([value=""]) ~ .form-glass-label,
+    .form-glass-input:placeholder-shown:not(:focus) ~ .form-glass-label {
+        /* handled by JS or standard classes */
+    }
+
+    /* Active label styling */
+    .form-glass-input-active ~ .form-glass-label {
+        top: 0;
+        transform: translateY(-50%) scale(0.85);
+        left: 15px;
+        background: var(--bg-dark-secondary);
+        padding: 0 8px;
+        color: #818cf8;
+        font-weight: 600;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .input-icon {
+        position: absolute;
+        left: 18px;
+        font-size: 1.1rem;
+        color: #64748b;
+        transition: color 0.3s ease;
+        z-index: 10;
+        pointer-events: none;
+    }
+    
+    .form-glass-input:focus ~ .input-icon {
+        color: #818cf8;
+    }
+
+    /* Live Preview Bar styling */
+    .preview-progress-container {
+        height: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid var(--border-glass);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    .preview-progress-bar {
+        height: 100%;
+        background: var(--cyan-gradient);
+        border-radius: 10px;
+        width: 0%;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <div class="row g-4">
+        
+        <!-- LEFT COLUMN: CONTROLS FORM -->
+        <div class="col-md-6">
+            <div class="glass-card h-100">
+                <h5 class="mb-4"><i class="fa-solid fa-square-sliders me-2 text-cyan"></i> Capacity Calibration</h5>
+                
+                <p class="text-secondary mb-4" style="font-size: 0.9rem; line-height: 1.6;">
+                    Modify the physical configuration of your parking space. Changes will be synced to Firebase instantly, adjusting metrics across all clients and live camera nodes.
+                </p>
+
+                <form method="POST" autocomplete="off" id="slots-form">
+                    {% csrf_token %}
+
+                    <!-- Total Slots Field -->
+                    <div class="form-glass-group">
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-list-ol input-icon"></i>
+                            <input type="number" 
+                                   name="total_slots" 
+                                   id="input-total" 
+                                   class="form-control form-glass-input" 
+                                   value="{{ parking.total_slots|default:20 }}"
+                                   min="1"
+                                   required 
+                                   oninput="updateLivePreview()">
+                            <label for="input-total" class="form-glass-label">Total Parking Capacity</label>
+                        </div>
+                    </div>
+
+                    <!-- Occupied Slots Field -->
+                    <div class="form-glass-group">
+                        <div class="input-icon-wrapper">
+                            <i class="fa-solid fa-car-side input-icon"></i>
+                            <input type="number" 
+                                   name="occupied_slots" 
+                                   id="input-occupied" 
+                                   class="form-control form-glass-input" 
+                                   value="{{ parking.occupied_slots|default:0 }}"
+                                   min="0"
+                                   required 
+                                   oninput="updateLivePreview()">
+                            <label for="input-occupied" class="form-glass-label">Occupied Space Count</label>
+                        </div>
+                    </div>
+
+                    <!-- Submit action button -->
+                    <div class="mt-4 pt-3 border-top border-secondary-subtle" style="border-top: 1px solid var(--border-glass) !important;">
+                        <button type="submit" class="glass-btn glass-btn-primary w-100 justify-content-center">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Calibration Settings
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: LIVE INTERACTIVE PREVIEW -->
+        <div class="col-md-6">
+            <div class="glass-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h5 class="mb-4"><i class="fa-solid fa-eye me-2 text-primary"></i> Simulation Preview</h5>
+                    
+                    <p class="text-secondary mb-4" style="font-size: 0.9rem; line-height: 1.6;">
+                        This gauge illustrates the visual layout of your parking slots after saving the changes. Check boundaries before saving to database coordinates.
+                    </p>
+
+                    <!-- Large percentage presentation -->
+                    <div class="text-center py-4 my-2">
+                        <h1 class="display-1 fw-bold text-white m-0" id="preview-percent">0%</h1>
+                        <p class="text-cyan text-uppercase fw-semibold m-0 mt-1" style="font-size: 0.85rem; letter-spacing: 0.05em;">Allocated Load Preview</p>
+                    </div>
+
+                    <!-- Progress bar meter -->
+                    <div class="my-4">
+                        <div class="d-flex justify-content-between mb-2" style="font-size: 0.8rem; font-weight: 600;">
+                            <span class="text-secondary">Filled Slots</span>
+                            <span class="text-white" id="preview-fraction">0 / 0 slots</span>
+                        </div>
+                        <div class="preview-progress-container">
+                            <div class="preview-progress-bar" id="preview-bar"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-top border-secondary-subtle" style="border-top: 1px solid var(--border-glass) !important; font-size: 0.8rem; color: #64748b;">
+                    <i class="fa-solid fa-shield-halved me-1 text-emerald"></i> Safe validations: Occupancy will automatically truncate if it exceeds physical bounds.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Live reactive computations and input label adjustments
+    function updateLivePreview() {
+        const totalInput = document.getElementById("input-total");
+        const occupiedInput = document.getElementById("input-occupied");
+
+        let total = parseInt(totalInput.value) || 0;
+        let occupied = parseInt(occupiedInput.value) || 0;
+
+        // Validation bounds
+        if (total < 1) total = 1;
+        if (occupied < 0) occupied = 0;
+        if (occupied > total) {
+            occupied = total;
+            occupiedInput.value = occupied;
+        }
+
+        // Fraction label
+        document.getElementById("preview-fraction").textContent = `${occupied} / ${total} slots`;
+
+        // Percent calculation
+        const percent = Math.round((occupied / total) * 100);
+        document.getElementById("preview-percent").textContent = `${percent}%`;
+
+        // Bar meter drawing
+        const bar = document.getElementById("preview-bar");
+        bar.style.width = `${percent}%`;
+
+        // Alert colors for load preview
+        if (percent > 90) {
+            bar.style.background = "var(--danger-gradient)";
+            bar.style.boxShadow = "0 0 10px rgba(244, 63, 94, 0.4)";
+        } else if (percent > 70) {
+            bar.style.background = "var(--warning-gradient)";
+            bar.style.boxShadow = "0 0 10px rgba(245, 158, 11, 0.3)";
+        } else {
+            bar.style.background = "var(--cyan-gradient)";
+            bar.style.boxShadow = "0 0 10px rgba(14, 165, 233, 0.3)";
+        }
+
+        // Float label alignment hooks
+        [totalInput, occupiedInput].forEach(inp => {
+            if (inp.value !== "") {
+                inp.classList.add("form-glass-input-active");
+            } else {
+                inp.classList.remove("form-glass-input-active");
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        updateLivePreview();
+    });
+</script>
+{% endblock %}

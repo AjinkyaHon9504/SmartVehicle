@@ -1,0 +1,243 @@
+{% extends 'dashboard/base_layout.html' %}
+{% block title %}Authorized Vehicles | Smart Parking{% endblock %}
+{% block page_title %}Authorized Vehicles{% endblock %}
+{% block page_subtitle %}Manage registered plates and clearance list{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Premium Monospace License Plate Box */
+    .plate-badge-container {
+        display: inline-flex;
+        align-items: center;
+        background: #f8fafc;
+        border: 2px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 2px 8px;
+        color: #0f172a;
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 800;
+        font-size: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(255, 255, 255, 0.8);
+        border-left: 6px solid #2563eb; /* Blue country tag style */
+        letter-spacing: 1px;
+        position: relative;
+    }
+    
+    /* Table Glass Enhancements */
+    .table-container {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border-glass);
+    }
+    .custom-table {
+        margin: 0;
+        background: transparent !important;
+        color: #f1f5f9;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .custom-table th {
+        background: rgba(255, 255, 255, 0.03) !important;
+        color: #94a3b8;
+        font-family: var(--font-headings);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--border-glass) !important;
+        padding: 16px 20px;
+    }
+    .custom-table td {
+        background: transparent !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+        padding: 14px 20px;
+        vertical-align: middle;
+        transition: background-color 0.2s ease;
+    }
+    .custom-table tbody tr:hover td {
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+    .custom-table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+
+    /* Search Box styling */
+    .search-input-group {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid var(--border-glass);
+        border-radius: 12px;
+        padding: 4px 12px;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        max-width: 380px;
+        transition: all 0.3s ease;
+    }
+    .search-input-group:focus-within {
+        border-color: rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
+    }
+    .search-input-group input {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: white;
+        padding: 8px;
+        font-size: 0.9rem;
+        width: 100%;
+    }
+    .search-input-group input::placeholder {
+        color: #64748b;
+    }
+    .search-input-group i {
+        color: #64748b;
+    }
+
+    /* Small Vehicle type Pill styling */
+    .vehicle-pill {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: #cbd5e1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- HEADER ACTION BAR -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        
+        <!-- Search bar -->
+        <div class="search-input-group">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="plate-search" placeholder="Quick search by plate or owner..." onkeyup="filterPlates()">
+        </div>
+
+        <!-- Add Button -->
+        <a href="/vehicles/add/" class="glass-btn glass-btn-primary">
+            <i class="fa-solid fa-plus"></i> Register New Vehicle
+        </a>
+
+    </div>
+
+    <!-- VEHICLES DATA TABLE CARD -->
+    <div class="glass-card p-0 overflow-hidden">
+        
+        <div class="p-4 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center" style="border-bottom: 1px solid var(--border-glass) !important; background: rgba(255,255,255,0.01);">
+            <h5 class="m-0"><i class="fa-solid fa-list-check me-2 text-cyan"></i> Clearances Database</h5>
+            <span class="badge rounded-pill bg-dark" style="border: 1px solid var(--border-glass); padding: 6px 14px;" id="total-badge">{{ vehicles.items|length }} registered</span>
+        </div>
+
+        <div class="table-container">
+            <table class="table custom-table" id="vehicles-table">
+                <thead>
+                    <tr>
+                        <th>License Plate</th>
+                        <th>Owner / Custodian</th>
+                        <th>Vehicle Type</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plate, data in vehicles.items %}
+                    <tr class="vehicle-row">
+                        <td>
+                            <div class="plate-badge-container">
+                                {{ plate }}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="fw-semibold text-white">{{ data.owner }}</span>
+                        </td>
+                        <td>
+                            <span class="vehicle-pill" id="pill-{{ forloop.counter }}">{{ data.vehicle|default:"Car" }}</span>
+                        </td>
+                        <td class="text-end">
+                            <a href="/vehicles/delete/{{ plate }}/" 
+                               onclick="return confirm('Are you sure you want to revoke authorization for plate [{{ plate }}]?');"
+                               class="glass-btn glass-btn-danger d-inline-flex align-items-center justify-content-center"
+                               style="width: 36px; height: 36px; padding: 0; border-radius: 8px;"
+                               title="Revoke Authorization">
+                                <i class="fa-solid fa-trash-can" style="font-size: 0.85rem;"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="no-records-row">
+                        <td colspan="4" class="text-center py-5 text-secondary">
+                            <i class="fa-solid fa-circle-info fa-2x mb-3 text-muted"></i>
+                            <p class="m-0">No authorized vehicles found in Firebase DB.</p>
+                            <a href="/vehicles/add/" class="btn btn-sm btn-outline-primary mt-3">Add the first one</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Live Search filtering
+    function filterPlates() {
+        const query = document.getElementById("plate-search").value.toLowerCase();
+        const rows = document.querySelectorAll(".vehicle-row");
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const plate = row.cells[0].textContent.toLowerCase();
+            const owner = row.cells[1].textContent.toLowerCase();
+            const type = row.cells[2].textContent.toLowerCase();
+            
+            if (plate.includes(query) || owner.includes(query) || type.includes(query)) {
+                row.style.display = "";
+                visibleCount++;
+            } else {
+                row.style.display = "none";
+            }
+        });
+
+        // Update database counts badge
+        const badge = document.getElementById("total-badge");
+        if (badge) {
+            badge.innerText = query ? `${visibleCount} found` : `{{ vehicles.items|length }} registered`;
+        }
+    }
+
+    // Modern colorized category pill tags
+    document.addEventListener("DOMContentLoaded", function() {
+        const pills = document.querySelectorAll(".vehicle-pill");
+        pills.forEach(pill => {
+            const val = pill.textContent.trim().toLowerCase();
+            if (val.includes("suv")) {
+                pill.style.background = "rgba(16, 185, 129, 0.15)";
+                pill.style.color = "#10b981";
+                pill.style.borderColor = "rgba(16, 185, 129, 0.25)";
+            } else if (val.includes("sedan") || val.includes("car")) {
+                pill.style.background = "rgba(14, 165, 233, 0.15)";
+                pill.style.color = "#0ea5e9";
+                pill.style.borderColor = "rgba(14, 165, 233, 0.25)";
+            } else if (val.includes("truck") || val.includes("pickup")) {
+                pill.style.background = "rgba(245, 158, 11, 0.15)";
+                pill.style.color = "#f59e0b";
+                pill.style.borderColor = "rgba(245, 158, 11, 0.25)";
+            } else if (val.includes("bike") || val.includes("motorcycle")) {
+                pill.style.background = "rgba(168, 85, 247, 0.15)";
+                pill.style.color = "#a855f7";
+                pill.style.borderColor = "rgba(168, 85, 247, 0.25)";
+            }
+        });
+    });
+</script>
+{% endblock %}

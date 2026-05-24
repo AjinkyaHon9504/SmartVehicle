@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Vehicle Detection | Smart Parking</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap & Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background: radial-gradient(circle at 10% 20%, #0b1122 0%, #060913 90%);
+            color: #f1f5f9;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cam-glow-box {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+            margin: 0 auto 25px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #94a3b8;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .status-ping {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 16px;
+            height: 16px;
+            background: #64748b;
+            border-radius: 50%;
+            border: 3px solid #0f172a;
+            transition: all 0.3s ease;
+        }
+
+        .status-ping.active {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { transform: scale(1.2); opacity: 1; }
+        }
+
+        .glass-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.25s ease;
+            cursor: pointer;
+            width: 100%;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        .btn-start:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
+        }
+        .btn-stop:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(244, 63, 94, 0.4);
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        #status-panel {
+            background: #020408;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+        }
+        
+        #status-text {
+            color: #cbd5e1;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glass-card">
+        
+        <!-- Animated Camera Icon -->
+        <div class="cam-glow-box" id="cam-box">
+            <i class="fa-solid fa-camera-retro" id="cam-icon"></i>
+            <div class="status-ping" id="cam-ping"></div>
+        </div>
+
+        <h2 style="font-family: 'Outfit', sans-serif; font-weight: 700;" class="mb-2">AI Camera Control</h2>
+        <p class="text-secondary mb-4" style="font-size: 0.9rem; line-height: 1.6;">Activate or deactivate the local hardware capture threads to run license plate detections.</p>
+
+        <!-- Status Panel -->
+        <div id="status-panel">
+            Current state: <span id="status-text">OFFLINE</span>
+        </div>
+
+        <!-- Controls -->
+        <div>
+            <button onclick="triggerDetection('start')" class="glass-btn btn-start">
+                <i class="fa-solid fa-play"></i> Start Capture Thread
+            </button>
+            <button onclick="triggerDetection('stop')" class="glass-btn btn-stop">
+                <i class="fa-solid fa-stop"></i> Stop Capture Thread
+            </button>
+            <a href="/" class="glass-btn btn-back text-decoration-none">
+                <i class="fa-solid fa-house"></i> Return to Dashboard
+            </a>
+        </div>
+
+    </div>
+
+    <!-- JS Scripts -->
+    <script>
+        function triggerDetection(action) {
+            const statusText = document.getElementById("status-text");
+            const ping = document.getElementById("cam-ping");
+            const icon = document.getElementById("cam-icon");
+            const box = document.getElementById("cam-box");
+
+            statusText.innerText = action === 'start' ? "INITIALIZING..." : "TERMINATING THREAD...";
+            statusText.style.color = "#818cf8";
+
+            const endpoint = action === 'start' ? "/vehicles/detect/start/" : "/vehicles/detect/stop/";
+
+            fetch(endpoint)
+            .then(res => res.json())
+            .then(data => {
+                setTimeout(() => {
+                    statusText.innerText = data.status;
+                    
+                    if (action === 'start' && data.status.toLowerCase().includes("started")) {
+                        ping.classList.add("active");
+                        statusText.style.color = "#10b981";
+                        icon.style.color = "#10b981";
+                        box.style.borderColor = "rgba(16, 185, 129, 0.25)";
+                    } else {
+                        ping.classList.remove("active");
+                        statusText.style.color = "#f43f5e";
+                        icon.style.color = "#94a3b8";
+                        box.style.borderColor = "rgba(255, 255, 255, 0.08)";
+                        if (data.status.toLowerCase().includes("stopped")) {
+                            statusText.style.color = "#cbd5e1";
+                        }
+                    }
+                }, 500);
+            })
+            .catch(err => {
+                statusText.innerText = "CONNECTION ERROR";
+                statusText.style.color = "#ef4444";
+                ping.classList.remove("active");
+            });
+        }
+    </script>
+</body>
+</html>
