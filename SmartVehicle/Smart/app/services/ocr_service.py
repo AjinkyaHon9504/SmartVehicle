@@ -66,9 +66,12 @@ def is_valid_plate(text):
 # -------------------------
 def extract_text(image):
 
-    processed = preprocess(image)
+    # Try raw image first (EasyOCR performs much better on raw RGB/Grayscale images)
+    results = reader.readtext(image)
 
-    results = reader.readtext(processed)
+    if not results:
+        processed = preprocess(image)
+        results = reader.readtext(processed)
 
     if not results:
         return None
